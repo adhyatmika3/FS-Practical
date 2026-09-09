@@ -1,20 +1,38 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Navbar from "./components/Navbar"
 import HackathonCard from "./components/HackathonCard"
 import Login from "./components/Login"
+import hackathons from "./components/Hackathon"
+import useHackathons from "./hooks/useHackathons"
 
 function App() {
   const [showLogin, setShowLogin] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  const hackathonList = useHackathons(hackathons)
+
+  useEffect(() => {
+    setLoaded(true)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-100">
 
-      <Navbar onLogin={() => setShowLogin(true)} />
+      <Navbar
+        onLogin={() => setShowLogin(true)}
+        onHome={() => setShowLogin(false)}
+      />
 
       {!showLogin ? (
         <>
-          {/* Hero Section */}
           <section className="text-center py-16 px-4">
+
+            {loaded && (
+              <p className="text-green-600 font-medium mb-4">
+                Hackathons loaded successfully!
+              </p>
+            )}
+
             <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
               Join the Next Hackathon
             </h1>
@@ -28,32 +46,20 @@ function App() {
             </button>
           </section>
 
-          {/* Hackathons */}
           <section className="max-w-6xl mx-auto px-6 pb-16">
             <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
               Upcoming Hackathons
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-              <HackathonCard
-                title="Web Development Hackathon"
-                date="20 September 2026"
-                description="Create innovative web applications."
-              />
-
-              <HackathonCard
-                title="AI Innovation Hackathon"
-                date="25 September 2026"
-                description="Build solutions using artificial intelligence."
-              />
-
-              <HackathonCard
-                title="Mobile App Hackathon"
-                date="30 September 2026"
-                description="Develop a creative mobile application."
-              />
-
+              {hackathonList.map((hackathon) => (
+                <HackathonCard
+                  key={hackathon.id}
+                  title={hackathon.title}
+                  date={hackathon.date}
+                  description={hackathon.description}
+                />
+              ))}
             </div>
           </section>
         </>

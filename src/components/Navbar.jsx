@@ -1,7 +1,9 @@
-import { useState } from "react"
+import { useContext, useState } from "react"
+import { UserContext } from "../context/UserContext"
 
 function Navbar({ onLogin }) {
   const [open, setOpen] = useState(false)
+  const { user } = useContext(UserContext)
 
   return (
     <nav className="bg-blue-600 text-white px-6 py-4">
@@ -15,12 +17,18 @@ function Navbar({ onLogin }) {
         {/* Navigation */}
         <div className="flex gap-6 items-center">
 
+          {/* User from Context */}
+          <span className="text-blue-200">
+            Welcome, {user}
+          </span>
+
+          {/* Home */}
           <button
-  onClick={() => window.location.reload()}
-  className="hover:text-blue-200"
->
-  Home
-</button>
+            onClick={() => window.location.reload()}
+            className="hover:text-blue-200"
+          >
+            Home
+          </button>
 
           {/* Hackathons Dropdown */}
           <div className="relative">

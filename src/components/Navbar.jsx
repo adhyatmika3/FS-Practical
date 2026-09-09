@@ -1,36 +1,44 @@
 import { useContext, useState } from "react"
 import { UserContext } from "../context/UserContext"
 
-function Navbar({ onLogin }) {
+function Navbar({ onLogin, onHome }) {
   const [open, setOpen] = useState(false)
-  const { user } = useContext(UserContext)
+
+  const {
+    user,
+    logout,
+    registeredHackathons,
+  } = useContext(UserContext)
 
   return (
     <nav className="bg-blue-600 text-white px-6 py-4">
       <div className="max-w-6xl mx-auto flex justify-between items-center">
 
-        {/* Logo */}
         <h1 className="text-2xl font-bold">
           Hackathon Hub
         </h1>
 
-        {/* Navigation */}
         <div className="flex gap-6 items-center">
 
-          {/* User from Context */}
-          <span className="text-blue-200">
-            Welcome, {user}
-          </span>
+          {user && (
+            <>
+              <span className="text-blue-200">
+                Welcome, {user}
+              </span>
 
-          {/* Home */}
+              <span className="bg-blue-500 px-3 py-1 rounded-full text-sm">
+                Registrations: {registeredHackathons.length}
+              </span>
+            </>
+          )}
+
           <button
-            onClick={() => window.location.reload()}
+            onClick={onHome}
             className="hover:text-blue-200"
           >
             Home
           </button>
 
-          {/* Hackathons Dropdown */}
           <div className="relative">
             <button
               onClick={() => setOpen(!open)}
@@ -42,15 +50,11 @@ function Navbar({ onLogin }) {
             {open && (
               <div className="absolute right-0 mt-2 w-40 bg-white text-gray-800 rounded-lg shadow-lg z-10">
 
-                <button
-                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                >
+                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100">
                   Upcoming
                 </button>
 
-                <button
-                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                >
+                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100">
                   Completed
                 </button>
 
@@ -58,13 +62,21 @@ function Navbar({ onLogin }) {
             )}
           </div>
 
-          {/* Login */}
-          <button
-            onClick={onLogin}
-            className="hover:text-blue-200"
-          >
-            Login
-          </button>
+          {user ? (
+            <button
+              onClick={logout}
+              className="hover:text-blue-200"
+            >
+              Logout
+            </button>
+          ) : (
+            <button
+              onClick={onLogin}
+              className="hover:text-blue-200"
+            >
+              Login
+            </button>
+          )}
 
         </div>
       </div>

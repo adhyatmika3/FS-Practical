@@ -1,9 +1,11 @@
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
+const { authenticateToken, authorizeRoles } = require("./middleware/authMiddleware");
 
 const app = express();
 
@@ -37,6 +39,37 @@ app.get("/", (req, res) => {
 // API routes
 const hackathonRoutes = require("./routes/hackathonRoutes");
 app.use("/api/hackathons", hackathonRoutes);
+
+const authRoutes = require("./routes/authRoutes");
+app.use("/api/auth", authRoutes);
+app.get("/api/auth/test", (req, res) => {
+  res.json({ success: true, message: "Auth route mount works" });
+});
+
+
+// Protected route: any logged-in user
+app.get("/api/auth/profile", authenticateToken, (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Authentication successful",
+    user: req.user
+  });
+});
+
+// Admin-only route
+app.get(
+  "/api/admin/test",
+  authenticateToken,
+  authorizeRoles("Admin"),
+  (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: "Admin access granted",
+      user: req.user
+    });
+  }
+);
+
 
 // Handle unknown routes
 app.use((req, res) => {

@@ -22,9 +22,9 @@ function Navbar({ onLogin, onHome }) {
 
           {user && (
             <>
-              <span className="text-blue-200">
-                Welcome, {user}
-              </span>
+             <span className="text-blue-200">
+  Welcome, {typeof user === "object" ? user.name : user}
+</span>
 
               <span className="bg-blue-500 px-3 py-1 rounded-full text-sm">
                 Registrations: {registeredHackathons.length}

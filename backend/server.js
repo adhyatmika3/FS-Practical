@@ -4,8 +4,15 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const http = require("http");
+const { Server } = require("socket.io");
+
 require("dotenv").config();
-const { authenticateToken, authorizeRoles } = require("./middleware/authMiddleware");
+
+const {
+  authenticateToken,
+  authorizeRoles
+} = require("./middleware/authMiddleware");
 
 const app = express();
 
@@ -42,21 +49,28 @@ app.use("/api/hackathons", hackathonRoutes);
 
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes);
+
 app.get("/api/auth/test", (req, res) => {
-  res.json({ success: true, message: "Auth route mount works" });
-});
-
-
-// Protected route: any logged-in user
-app.get("/api/auth/profile", authenticateToken, (req, res) => {
-  res.status(200).json({
+  res.json({
     success: true,
-    message: "Authentication successful",
-    user: req.user
+    message: "Auth route mount works"
   });
 });
 
-// Admin-only route
+// Protected route: any logged-in user
+app.get(
+  "/api/auth/profile",
+  authenticateToken,
+  (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: "Authentication successful",
+      user: req.user
+    });
+  }
+);
+
+// Admin-only test route
 app.get(
   "/api/admin/test",
   authenticateToken,
@@ -70,29 +84,63 @@ app.get(
   }
 );
 
+// Create HTTP server for Express and Socket.IO
+const server = http.createServer(app);
 
-// Handle unknown routes
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found"
-  });
+const io = new Server(server, {
+  cors: {
+    origin: [
+      "http://localhost:8088",
+      "http://localhost:5173"
+    ],
+    methods: ["GET", "POST"]
+  }
 });
 
-// Centralized error handler
-app.use((err, req, res, next) => {
-  console.error(err);
+// Admin-only announcement publishing API
+app.post(
+  "/api/announcements",
+  authenticateToken,
+  authorizeRoles("Admin"),
+  (req, res) => {
+    const { message } = req.body;
 
-  if (res.headersSent) {
-    return next(err);
+    if (typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Announcement message is required"
+      });
+    }
+
+    const announcement = {
+      message: message.trim(),
+      timestamp: new Date().toISOString()
+    };
+
+    io.to("announcements").emit(
+      "new-announcement",
+      announcement
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Announcement published successfully",
+      announcement
+    });
   }
+);
 
-  res.status(err.status || 500).json({
-    success: false,
-    message:
-      err.status && err.status < 500
-        ? err.message
-        : "Internal server error"
+// Real-time announcement connections
+io.on("connection", (socket) => {
+  console.log("Socket connected:", socket.id);
+
+  socket.on("join-announcements", () => {
+    socket.join("announcements");
+    console.log("Client joined announcements:", socket.id);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Socket disconnected:", socket.id);
   });
 });
 
@@ -108,16 +156,19 @@ async function startServer() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("MongoDB Connected");
 
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    server.listen(PORT, () => {
+      console.log(`HackHub server running on port ${PORT}`);
+      console.log("Socket.IO real-time communication enabled");
     });
   } catch (error) {
-  console.error("Server startup failed:", error.message);
-  console.error("Error name:", error.name);
-  console.error("Error code:", error.code);
-  console.error("Error cause:", error.cause?.message);
-  process.exit(1);
-}
+    console.error("Server startup failed:", error.message);
+    console.error("Error name:", error.name);
+    console.error("Error code:", error.code);
+    console.error("Error cause:", error.cause?.message);
+    process.exit(1);
+  }
 }
 
 startServer();
+
+module.exports = { app, server, io };

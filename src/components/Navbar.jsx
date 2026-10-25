@@ -1,7 +1,7 @@
 import { useContext, useState } from "react"
 import { UserContext } from "../context/UserContext"
 
-function Navbar({ onLogin, onHome }) {
+function Navbar({ onLogin, onHome, onFilterChange, onSelectFilter }) {
   const [open, setOpen] = useState(false)
 
   const {
@@ -10,11 +10,25 @@ function Navbar({ onLogin, onHome }) {
     registeredHackathons,
   } = useContext(UserContext)
 
+  const handleFilter = (filterType) => {
+    if (onFilterChange) onFilterChange(filterType)
+    if (onSelectFilter) onSelectFilter(filterType)
+    setOpen(false)
+  }
+
+  const handleHomeClick = () => {
+    if (onHome) onHome()
+    setOpen(false)
+  }
+
   return (
     <nav className="bg-blue-600 text-white px-6 py-4">
       <div className="max-w-6xl mx-auto flex justify-between items-center">
 
-        <h1 className="text-2xl font-bold">
+        <h1
+          onClick={handleHomeClick}
+          className="text-2xl font-bold cursor-pointer"
+        >
           Hackathon Hub
         </h1>
 
@@ -33,7 +47,7 @@ function Navbar({ onLogin, onHome }) {
           )}
 
           <button
-            onClick={onHome}
+            onClick={handleHomeClick}
             className="hover:text-blue-200"
           >
             Home
@@ -50,11 +64,17 @@ function Navbar({ onLogin, onHome }) {
             {open && (
               <div className="absolute right-0 mt-2 w-40 bg-white text-gray-800 rounded-lg shadow-lg z-10">
 
-                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100">
+                <button
+                  onClick={() => handleFilter("upcoming")}
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                >
                   Upcoming
                 </button>
 
-                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100">
+                <button
+                  onClick={() => handleFilter("completed")}
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                >
                   Completed
                 </button>
 

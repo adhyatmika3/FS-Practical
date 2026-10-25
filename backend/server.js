@@ -50,6 +50,9 @@ app.use("/api/hackathons", hackathonRoutes);
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes);
 
+const registrationRoutes = require("./routes/registrationRoutes");
+app.use("/api/registrations", registrationRoutes);
+
 app.get("/api/auth/test", (req, res) => {
   res.json({
     success: true,
@@ -96,6 +99,8 @@ const io = new Server(server, {
     methods: ["GET", "POST"]
   }
 });
+
+app.set("io", io);
 
 // Admin-only announcement publishing API
 app.post(

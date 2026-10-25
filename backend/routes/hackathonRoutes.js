@@ -4,6 +4,11 @@ const { body, param, validationResult } = require("express-validator");
 const mongoose = require("mongoose");
 
 const Hackathon = require("../models/Hackathon");
+const Registration = require("../models/Registration");
+const {
+  authenticateToken,
+  authorizeRoles
+} = require("../middleware/authMiddleware");
 
 // Check validation errors
 const validateRequest = (req, res, next) => {
@@ -71,7 +76,12 @@ const validateHackathon = [
 ];
 
 // CREATE - Add a hackathon
-router.post("/", validateHackathon, async (req, res) => {
+router.post(
+  "/",
+  authenticateToken,
+  authorizeRoles("Admin"),
+  validateHackathon,
+  async (req, res) => {
   try {
     const hackathon = await Hackathon.create({
       name: req.body.name,
@@ -138,7 +148,11 @@ router.get("/:id", validateId, async (req, res) => {
 });
 
 // UPDATE - Update a hackathon
-router.put("/:id", [...validateId.slice(0, 1),
+router.put(
+  "/:id",
+  authenticateToken,
+  authorizeRoles("Admin"),
+  [...validateId.slice(0, 1),
   body("name").optional().trim().notEmpty()
     .withMessage("Name cannot be empty"),
   body("organizer").optional().trim().notEmpty()
@@ -206,7 +220,12 @@ router.put("/:id", [...validateId.slice(0, 1),
 });
 
 // DELETE - Delete a hackathon
-router.delete("/:id", validateId, async (req, res) => {
+router.delete(
+  "/:id",
+  authenticateToken,
+  authorizeRoles("Admin"),
+  validateId,
+  async (req, res) => {
   try {
     const hackathon = await Hackathon.findByIdAndDelete(req.params.id);
 
@@ -216,6 +235,9 @@ router.delete("/:id", validateId, async (req, res) => {
         message: "Hackathon not found"
       });
     }
+
+    // Cascade delete related registrations to prevent orphaned records
+    await Registration.deleteMany({ hackathon: req.params.id });
 
     res.status(200).json({
       success: true,

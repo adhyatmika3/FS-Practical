@@ -88,6 +88,31 @@ function UserProvider({ children }) {
     return data.user
   }
 
+  const signup = async (name, email, password) => {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || ""}/api/auth/register`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password }),
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      const errorMessage =
+        data.message ||
+        (Array.isArray(data.errors) && data.errors[0]?.msg) ||
+        "Registration failed"
+      throw new Error(errorMessage)
+    }
+
+    return data
+  }
+
   const logout = () => {
     localStorage.removeItem("user")
     localStorage.removeItem("token")
@@ -137,6 +162,7 @@ function UserProvider({ children }) {
         user,
         token,
         login,
+        signup,
         logout,
         registeredHackathons,
         registerForHackathon,

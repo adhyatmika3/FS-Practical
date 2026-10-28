@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
-function Login() {
+function Login({ setPage, onSwitchToSignup }) {
   const { onLogin } = useContext(AuthContext);
 
   const [name, setName] = useState('');
@@ -187,6 +187,20 @@ function Login() {
             >
               Login
             </button>
+
+            <div className="mt-4 text-center text-xs text-gray-500">
+              Don&apos;t have an account?{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSwitchToSignup) onSwitchToSignup();
+                  else if (setPage) setPage("signup");
+                }}
+                className="text-blue-600 hover:text-blue-700 font-semibold hover:underline cursor-pointer"
+              >
+                Create Account
+              </button>
+            </div>
 
           </form>
         </div>

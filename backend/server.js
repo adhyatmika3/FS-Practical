@@ -90,50 +90,32 @@ app.get(
 // Create HTTP server for Express and Socket.IO
 const server = http.createServer(app);
 
+// Build allowed origins list: local dev ports + your production FRONTEND_URL
+const allowedOrigins = [
+  "http://localhost:8088",
+  "http://localhost:5173"
+];
+
+if (process.env.FRONTEND_URL) {
+  // Supports single URL or comma-separated URLs, automatically stripping any trailing slash
+  const envUrls = process.env.FRONTEND_URL.split(",").map((url) =>
+    url.trim().replace(/\/+$/, "")
+  );
+  allowedOrigins.push(...envUrls);
+}
+
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:8088",
-      "http://localhost:5173"
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST"]
   }
 });
 
 app.set("io", io);
 
-// Admin-only announcement publishing API
-app.post(
-  "/api/announcements",
-  authenticateToken,
-  authorizeRoles("Admin"),
-  (req, res) => {
-    const { message } = req.body;
-
-    if (typeof message !== "string" || !message.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Announcement message is required"
-      });
-    }
-
-    const announcement = {
-      message: message.trim(),
-      timestamp: new Date().toISOString()
-    };
-
-    io.to("announcements").emit(
-      "new-announcement",
-      announcement
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: "Announcement published successfully",
-      announcement
-    });
-  }
-);
+// Announcements API routes
+const announcementRoutes = require("./routes/announcementRoutes");
+app.use("/api/announcements", announcementRoutes);
 
 // Real-time announcement connections
 io.on("connection", (socket) => {

@@ -4,6 +4,8 @@ import { io } from "socket.io-client"
 import Navbar from "./components/Navbar"
 import HackathonCard from "./components/HackathonCard"
 import Login from "./components/Login"
+import Signup from "./components/Signup"
+import AnnouncementsPage from "./components/AnnouncementsPage"
 import hackathons from "./components/Hackathon"
 import { UserContext } from "./context/UserContext"
 import {
@@ -35,13 +37,66 @@ function App() {
     useContext(UserContext)
 
   const [showLogin, setShowLogin] = useState(false)
+  const [authView, setAuthView] = useState("login")
+  const [currentView, setCurrentView] = useState("home") // "home" | "announcements"
+  const [highlightedAnnouncementId, setHighlightedAnnouncementId] = useState(null)
+  const [prefilledEmail, setPrefilledEmail] = useState("")
+  const [loginSuccessBanner, setLoginSuccessBanner] = useState("")
   const [loaded, setLoaded] = useState(false)
   const [filter, setFilter] = useState("upcoming")
   const [announcements, setAnnouncements] = useState([])
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true)
+  const [announcementsError, setAnnouncementsError] = useState("")
   const [connectionStatus, setConnectionStatus] = useState("Connecting...")
   const [announcementMessage, setAnnouncementMessage] = useState("")
   const [publishing, setPublishing] = useState(false)
   const [publishStatus, setPublishStatus] = useState("")
+
+  const getStorageKey = () => {
+    const uid = user?._id || user?.id || user?.email
+    return uid ? `hackhub_read_announcements_${uid}` : "hackhub_read_announcements_guest"
+  }
+
+  const [readAnnouncementIds, setReadAnnouncementIds] = useState(() => {
+    try {
+      const uid = user?._id || user?.id || user?.email
+      const key = uid ? `hackhub_read_announcements_${uid}` : "hackhub_read_announcements_guest"
+      const saved = localStorage.getItem(key)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  useEffect(() => {
+    try {
+      const key = getStorageKey()
+      const saved = localStorage.getItem(key)
+      setReadAnnouncementIds(saved ? JSON.parse(saved) : [])
+    } catch {
+      setReadAnnouncementIds([])
+    }
+  }, [user])
+
+  const markAnnouncementRead = (id) => {
+    const strId = String(id)
+    setReadAnnouncementIds((prev) => {
+      if (prev.includes(strId)) return prev
+      const updated = [...prev, strId]
+      try {
+        localStorage.setItem(getStorageKey(), JSON.stringify(updated))
+      } catch {}
+      return updated
+    })
+  }
+
+  const markAllAnnouncementsRead = () => {
+    const allIds = announcements.map((a) => String(a._id || a.id))
+    setReadAnnouncementIds(allIds)
+    try {
+      localStorage.setItem(getStorageKey(), JSON.stringify(allIds))
+    } catch {}
+  }
 
   // Hackathons state
   const [hackathonsList, setHackathonsList] = useState([])
@@ -146,15 +201,57 @@ function App() {
   const headingText =
     filter === "completed" ? "Completed Hackathons" : "Upcoming Hackathons"
 
+  const fetchAnnouncements = async () => {
+    try {
+      setLoadingAnnouncements(true)
+      setAnnouncementsError("")
+      const response = await fetch(`${API_URL}/api/announcements`)
+      const data = await response.json()
+      if (response.ok && data.success && Array.isArray(data.data)) {
+        setAnnouncements(data.data)
+      } else {
+        throw new Error(data.message || "Failed to load announcements")
+      }
+    } catch (err) {
+      console.error("Error fetching announcements:", err)
+      setAnnouncementsError(err.message || "Could not load announcements.")
+    } finally {
+      setLoadingAnnouncements(false)
+    }
+  }
+
   const handleFilterChange = (selectedFilter) => {
     setFilter(selectedFilter)
+    setCurrentView("home")
     setShowLogin(false)
+    setAuthView("login")
   }
 
   const handleHome = () => {
     setFilter("upcoming")
+    setCurrentView("home")
     setShowLogin(false)
+    setAuthView("login")
   }
+
+  const handleAnnouncements = () => {
+    setCurrentView("announcements")
+    setShowLogin(false)
+    setAuthView("login")
+  }
+
+  const handleSelectAnnouncement = (item) => {
+    const id = item._id || item.id
+    markAnnouncementRead(id)
+    setHighlightedAnnouncementId(id)
+    setCurrentView("announcements")
+    setShowLogin(false)
+    setAuthView("login")
+  }
+
+  useEffect(() => {
+    fetchAnnouncements()
+  }, [])
 
   useEffect(() => {
     const socketConnection = io(SOCKET_URL)
@@ -173,7 +270,29 @@ function App() {
     })
 
     socketConnection.on("new-announcement", (announcement) => {
-      setAnnouncements((previous) => [...previous, announcement])
+      setAnnouncements((previous) => {
+        const id = announcement._id || announcement.id
+        if (previous.some((item) => (item._id || item.id) === id)) {
+          return previous
+        }
+        return [announcement, ...previous]
+      })
+    })
+
+    socketConnection.on("update-announcement", (updated) => {
+      setAnnouncements((previous) =>
+        previous.map((item) =>
+          (item._id || item.id) === (updated._id || updated.id)
+            ? updated
+            : item
+        )
+      )
+    })
+
+    socketConnection.on("delete-announcement", (deletedId) => {
+      setAnnouncements((previous) =>
+        previous.filter((item) => (item._id || item.id) !== deletedId)
+      )
     })
 
     socketConnection.on("new-registration", () => {
@@ -402,11 +521,64 @@ function App() {
     return (
       <div className="min-h-screen bg-gray-100">
         <Navbar
-          onLogin={() => setShowLogin(true)}
+          onLogin={() => {
+            setShowLogin(true)
+            setAuthView("login")
+          }}
           onHome={handleHome}
           onFilterChange={handleFilterChange}
+          onAnnouncements={handleAnnouncements}
+          announcements={announcements}
+          readAnnouncementIds={readAnnouncementIds}
+          onSelectAnnouncement={handleSelectAnnouncement}
+          onMarkAllRead={markAllAnnouncementsRead}
         />
-        <Login />
+        {authView === "signup" ? (
+          <Signup
+            onSwitchToLogin={() => setAuthView("login")}
+            onSuccess={(email) => {
+              setPrefilledEmail(email || "")
+              setLoginSuccessBanner("Registration successful! Please log in with your credentials.")
+              setAuthView("login")
+            }}
+          />
+        ) : (
+          <Login
+            onSwitchToSignup={() => setAuthView("signup")}
+            initialEmail={prefilledEmail}
+            successBanner={loginSuccessBanner}
+          />
+        )}
+      </div>
+    )
+  }
+
+  if (currentView === "announcements") {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar
+          onLogin={() => {
+            setShowLogin(true)
+            setAuthView("login")
+          }}
+          onHome={handleHome}
+          onFilterChange={handleFilterChange}
+          onAnnouncements={handleAnnouncements}
+          announcements={announcements}
+          readAnnouncementIds={readAnnouncementIds}
+          onSelectAnnouncement={handleSelectAnnouncement}
+          onMarkAllRead={markAllAnnouncementsRead}
+        />
+        <AnnouncementsPage
+          announcements={announcements}
+          loading={loadingAnnouncements}
+          error={announcementsError}
+          isAdmin={isAdmin}
+          token={token}
+          apiUrl={API_URL}
+          onRefresh={fetchAnnouncements}
+          highlightedId={highlightedAnnouncementId}
+        />
       </div>
     )
   }
@@ -415,9 +587,17 @@ function App() {
     return (
       <div className="min-h-screen bg-gray-100">
         <Navbar
-          onLogin={() => setShowLogin(true)}
+          onLogin={() => {
+            setShowLogin(true)
+            setAuthView("login")
+          }}
           onHome={handleHome}
           onFilterChange={handleFilterChange}
+          onAnnouncements={handleAnnouncements}
+          announcements={announcements}
+          readAnnouncementIds={readAnnouncementIds}
+          onSelectAnnouncement={handleSelectAnnouncement}
+          onMarkAllRead={markAllAnnouncementsRead}
         />
 
         <section className="text-center py-20 px-4">
@@ -430,8 +610,11 @@ function App() {
           </p>
 
           <button
-            onClick={() => setShowLogin(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+            onClick={() => {
+              setShowLogin(true)
+              setAuthView("login")
+            }}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 cursor-pointer"
           >
             Login to Register
           </button>
@@ -481,9 +664,17 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar
-        onLogin={() => setShowLogin(true)}
+        onLogin={() => {
+          setShowLogin(true)
+          setAuthView("login")
+        }}
         onHome={handleHome}
         onFilterChange={handleFilterChange}
+        onAnnouncements={handleAnnouncements}
+        announcements={announcements}
+        readAnnouncementIds={readAnnouncementIds}
+        onSelectAnnouncement={handleSelectAnnouncement}
+        onMarkAllRead={markAllAnnouncementsRead}
       />
 
       <section className="text-center py-12 px-4">
